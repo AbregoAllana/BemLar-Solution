@@ -5,6 +5,71 @@ Desde a limpeza dos dados até a avaliação do modelo.
 
 ---
 
+## Resposta aos 5 pedidos do Ricardo
+
+Esta seção consolida, item a item, as respostas finais ao e-mail do diretor financeiro.
+As decisões abaixo consideram o uso pretendido: ordenar uma fila de 80 contratos para
+ligações preventivas, e não classificar todos os contratos com um limiar fixo.
+
+### 1. "Quero a maior acurácia possível" e um mínimo de 80%
+
+**Decisão: atender com ressalva.** A acurácia foi calculada e reportada, mas não é o
+critério de aprovação da fila. A operação tem capacidade fixa de 80 ligações; portanto,
+um contrato entra pela posição no ranking de probabilidade, e não por um limiar de 0,50.
+No teste temporal, a métrica adequada ao uso foi `precision@80`, acompanhada de
+`recall@80` e da comparação com filas-base. A regressão logística escolhida obteve
+acurácia de 0,665, abaixo do corte pedido, mas alcançou precision de 0,800 na fila e
+superou a fila aleatória (0,450) e a fila por maior valor da parcela (0,588).
+
+**Alternativa:** levar ao conselho a qualidade da fila em termos operacionais e
+financeiros: 64 dos 80 contratos selecionados atingiram o alvo na janela temporal,
+enquanto 16 ligações foram usadas em contratos que não atingiram 30 dias de atraso.
+
+### 2. Usar `status_contrato`
+
+**Decisão: recusar.** Esse campo é uma fotografia no snapshot, posterior ao momento da
+ligação preventiva, e discorda do alvo em 62 contratos. Usá-lo permitiria incorporar
+informação que não existiria no momento da previsão e confundiria a situação posterior
+do contrato com o evento de 30 dias que queremos antecipar.
+
+**Alternativa:** usar o histórico de pagamentos disponível até `data_referencia`, com
+contagens e medidas de atraso como `payment_mean_delay`, `payment_late_rate` e
+`payment_max_delay`. Esses sinais existiriam no momento da decisão.
+
+### 3. Usar bairro e sexo
+
+**Decisão: recusar.** `sexo` é um atributo sensível e `bairro` pode funcionar como proxy
+territorial de renda e raça. Confirmar uma associação histórica não torna ético nem
+apropriado usar esses campos para decidir quem receberá a cobrança.
+
+**Alternativa:** manter os campos fora das features e auditar o desempenho por grupos,
+quando houver base legal e governança para isso, acompanhando diferenças de precision,
+recall e taxa de seleção sem transformar o grupo em critério de priorização.
+
+### 4. Usar o score de bureau
+
+**Decisão: atender.** O score entra no modelo porque a consulta existe antes da
+`data_referencia`; foi utilizada a última consulta disponível até esse corte. A variável
+contribui para a associação preditiva observada, mas sua importância não prova que o
+score cause o atraso nem garante estabilidade futura.
+
+**Ressalva:** monitorar a qualidade e a estabilidade do score ao longo do tempo e
+reavaliar o uso caso a cobertura, o custo ou a relação com o alvo mudem.
+
+### 5. Usar a lista de motivos de atraso do SAC
+
+**Decisão: recusar.** `motivos_atraso.csv` não tem `id_contrato` nem `id_cliente`, então
+os textos não podem ser ligados de forma confiável à unidade de análise. Além disso,
+anotações de motivo podem ser registradas depois que o atraso já ocorreu, produzindo
+vazamento temporal. A base foi mantida fora das features.
+
+**Alternativa:** estruturar o registro do SAC com chave de contrato ou cliente, data e
+hora auditáveis e um vocabulário controlado. Com esses campos, seria possível testar
+apenas motivos registrados antes da `data_referencia`, sem usar explicações posteriores
+ao evento que o modelo deve antecipar.
+
+---
+
 ## 1. Definição do alvo
 
 ```
